@@ -1,5 +1,10 @@
 ### test file
 test.py
+*.log
+
+### config file
+*.yaml
+*.db
 
 ### venv template
 # Virtualenv
