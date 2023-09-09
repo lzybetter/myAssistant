@@ -34,7 +34,7 @@ class RequestWithProxy:
 
     def get(self, url, headers=None):
         try:
-            if url.replace("https://", "").replace("http://", "") in self.__no_proxy:
+            if url.replace("https://", "").replace("http://", "").splice('/')[0] in self.__no_proxy:
                 r = requests.get(url=url, headers=headers)
             else:
                 r = requests.get(url=url, headers=headers, proxies=self.__proxies)

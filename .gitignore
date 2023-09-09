@@ -6,6 +6,12 @@ test.py
 *.yaml
 *.db
 
+## user file
+token_cache.bin
+
+### plugin file
+custom_plugins/*
+
 ### venv template
 # Virtualenv
 # http://iamzed.com/2009/05/07/a-primer-on-virtualenv/

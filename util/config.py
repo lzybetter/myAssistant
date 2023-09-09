@@ -3,6 +3,7 @@ import os
 
 
 class Config:
+
     __BASE_PATH = os.getcwd()
     __CONFIG_PATH = os.path.join(__BASE_PATH, 'config')
     __CONFIG_NAME = 'test.yaml'
@@ -59,5 +60,16 @@ class Config:
 
     def set_proxy(self, new_proxy):
         self.__CONFIG_DICT['PROXY'] = new_proxy
+        with open(os.path.join(self.__CONFIG_PATH, self.__CONFIG_NAME), 'w') as f:
+            f.write(yaml.safe_dump(self.__CONFIG_DICT, sort_keys=False))
+
+    def get_config(self, config_name, default=None):
+        try:
+            return self.__CONFIG_DICT[config_name]
+        except:
+            return default
+
+    def set_config(self, config_name, value):
+        self.__CONFIG_DICT[config_name] = value
         with open(os.path.join(self.__CONFIG_PATH, self.__CONFIG_NAME), 'w') as f:
             f.write(yaml.safe_dump(self.__CONFIG_DICT, sort_keys=False))
