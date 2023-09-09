@@ -6,7 +6,7 @@ class Config:
     __BASE_PATH = os.getcwd()
     __CONFIG_PATH = os.path.join(__BASE_PATH, 'config')
     __CONFIG_NAME = 'test.yaml'
-    __SCHEDULER_DB_FILE_NAME = 'scheduler.db'
+    __SCHEDULER_DB_FILE_NAME = 'schedule_db.db'
     __LOG_FILE_NAME = 'myAssistant.log'
     __CONFIG_DICT = {}
 
