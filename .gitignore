@@ -7,7 +7,7 @@ test.py
 *.db
 
 ## user file
-token_cache.bin
+custom_plugins/microsoft_todo/token_cache.bin
 
 ### plugin file
 custom_plugins/*

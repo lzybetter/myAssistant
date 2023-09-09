@@ -32,12 +32,13 @@ class RequestWithProxy:
             if self.__no_proxy:
                 os.environ['NO_PROXY'] = ','.join(self.__no_proxy)
 
-    def get(self, url, headers=None):
+    def get(self, url, **kwargs):
         try:
-            if url.replace("https://", "").replace("http://", "").splice('/')[0] in self.__no_proxy:
-                r = requests.get(url=url, headers=headers)
+            if url.replace("https://", "").replace("http://", "").split('/')[0] in self.__no_proxy:
+                r = requests.get(url=url, **kwargs)
             else:
-                r = requests.get(url=url, headers=headers, proxies=self.__proxies)
+                kwargs['proxies'] = self.__proxies
+                r = requests.get(url=url, **kwargs)
             return r
         except:
             return None
