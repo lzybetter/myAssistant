@@ -5,6 +5,7 @@ test.py
 ### config file
 *.yaml
 *.db
+*.bin
 
 ## user file
 custom_plugins/microsoft_todo/token_cache.bin
