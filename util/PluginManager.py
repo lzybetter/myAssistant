@@ -2,6 +2,7 @@ import asyncio
 import importlib.util
 import os
 import threading
+from datetime import datetime
 
 from util.base_plugin import BasePlugin
 
@@ -74,12 +75,8 @@ class PluginManager:
         def scheduler():
             asyncio.set_event_loop(self.loop)
             for name in self.get_plugin_name_list():
-                try:
-                    schedule_time = int(
-                        self.config.get_plugin_config(config_name='SCHEDULER_TIME', config_path=self.plugins_path[name]))
-                except:
-                    schedule_time = 10 * 60  # 默认十分钟运行一次
-                self.loop.create_task(self.execute_plugin_async(name, schedule_time))
+                schedule = self.__get_schedule_time(name)
+                self.loop.create_task(self.execute_plugin_async(name, schedule))
 
             self.loop.run_forever()
 
@@ -88,21 +85,64 @@ class PluginManager:
         thread.start()
 
 
-    async def execute_plugin_async(self, plugin_name, interval, *args, **kwargs):
+    async def execute_plugin_async(self, plugin_name, schedule, *args, **kwargs):
 
         while True:
             if plugin_name in self.plugins:
                 print(f"Executing plugin '{plugin_name}':")
-                result = self.execute_plugin(plugin_name, *args, **kwargs)
-                token = self.config.get_config('TELEGRAM')['BOT_TOKEN']
-                chat_id = self.config.get_config('TELEGRAM')['CHAT_ID']
-                await self.send_message_async(token, chat_id, result)
+                if schedule['mode'] == "INTERVAL" or schedule['mode'] == "CONTIENUOUS":
+                    result = self.execute_plugin(plugin_name, *args, **kwargs)
+                    token = self.config.get_config('TELEGRAM')['BOT_TOKEN']
+                    chat_id = self.config.get_config('TELEGRAM')['CHAT_ID']
+                    await self.send_message_async(token, chat_id, result)
+                elif schedule['mode'] == "FIX":
+                    now = datetime.now()
+                    if now.hour == schedule['HOUR'] and now.minute == schedule['MINUTE']:
+                        result = self.execute_plugin(plugin_name, *args, **kwargs)
+                        token = self.config.get_config('TELEGRAM')['BOT_TOKEN']
+                        chat_id = self.config.get_config('TELEGRAM')['CHAT_ID']
+                        await self.send_message_async(token, chat_id, result)
             else:
                 print(f"Plugin '{plugin_name}' not found.")
-            print(interval)
-            await asyncio.sleep(interval)
+
+            print(schedule)
+            await asyncio.sleep(schedule['INTERVAL_TIME'])
+
 
     async def send_message_async(self, bot_token, chat_id, text):
         proxy = telegram.request.HTTPXRequest(proxy_url='http://127.0.0.1:8889')
         bot = telegram.Bot(token=bot_token, request=proxy)
         await bot.send_message(chat_id=chat_id, text=text)
+
+    def __get_schedule_time(self, plugin_name):
+        schedule = {}
+        try:
+            schedule_config = self.config.get_plugin_config('SCHEDULE', self.plugins_path[plugin_name])
+            mode = schedule_config['MODE'].upper()
+            print(mode)
+            schedule['mode'] = mode
+            if mode == 'INTERVAL':
+                if 'INTERVAL_TIME' in schedule_config.keys():
+                    interval_time = (schedule_config['INTERVAL_TIME']['HOUR'] * 3600 +
+                                     schedule_config['INTERVAL_TIME']['MINUTE'] * 60 +
+                                        schedule_config['INTERVAL_TIME']['SECOND'])
+                    if interval_time < 30:
+                        schedule['INTERVAL_TIME'] = 30
+                    else:
+                        schedule['INTERVAL_TIME'] = interval_time
+                else:
+                    schedule['INTERVAL_TIME'] = 30
+            elif mode == 'FIX' and "RUN_TIME" in schedule_config.keys():
+                schedule['HOUR'] = schedule_config["RUN_TIME"]['HOUR']
+                schedule['MINUTE'] = schedule_config["RUN_TIME"]['MINUTE']
+                schedule['INTERVAL_TIME'] = 30
+            elif mode == 'CONTIENUOUS':
+                schedule['INTERVAL_TIME'] = 30
+            else:
+                schedule['mode'] = 'CONTIENUOUS'
+                schedule['INTERVAL_TIME'] = 30
+        except:
+            schedule['mode'] = 'CONTIENUOUS'
+            schedule['INTERVAL_TIME'] = 30
+
+        return schedule
