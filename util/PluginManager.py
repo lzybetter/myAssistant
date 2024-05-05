@@ -2,7 +2,7 @@ import asyncio
 import importlib.util
 import os
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from util.base_plugin import BasePlugin
 
@@ -47,10 +47,10 @@ class PluginManager:
             print(f"Executing plugin '{plugin_name}':")
             plugin_instance.run_plugin(self.callback, *args, **kwargs)
 
-    def execute_plugin(self, plugin_name, *args, **kwargs):
+    async def execute_plugin(self, plugin_name, *args, **kwargs):
         if plugin_name in self.plugins:
             print(f"Executing plugin '{plugin_name}':")
-            return self.plugins[plugin_name].run_plugin(self.callback, *args, **kwargs)
+            return await self.plugins[plugin_name].run_plugin(*args, **kwargs)
 
         else:
             print(f"Plugin '{plugin_name}' not found.")
@@ -59,15 +59,6 @@ class PluginManager:
     def get_plugin_name_list(self):
 
         return [plugin[0] for plugin in self.plugins.items()]
-
-    def callback(self, result):
-
-        print(f"Plugin '{result['plugin_name']}' returned:")
-        print(f"Success: {result['success']}")
-        if result['success']:
-            print(f"Result: {result['result']}")
-        else:
-            print(f"Error: {result['error']}")
 
     def start_scheduler(self):
         self.loop = asyncio.new_event_loop()
@@ -87,26 +78,40 @@ class PluginManager:
 
     async def execute_plugin_async(self, plugin_name, schedule, *args, **kwargs):
 
+        sleep_time = 30
+
         while True:
             if plugin_name in self.plugins:
                 print(f"Executing plugin '{plugin_name}':")
+                print(schedule)
                 if schedule['mode'] == "INTERVAL" or schedule['mode'] == "CONTIENUOUS":
-                    result = self.execute_plugin(plugin_name, *args, **kwargs)
+                    result = await self.execute_plugin(plugin_name, *args, **kwargs)
                     token = self.config.get_config('TELEGRAM')['BOT_TOKEN']
                     chat_id = self.config.get_config('TELEGRAM')['CHAT_ID']
-                    await self.send_message_async(token, chat_id, result)
+                    await self.send_message_async(token, chat_id, result['result'])
+                    sleep_time = schedule['INTERVAL_TIME']
                 elif schedule['mode'] == "FIX":
                     now = datetime.now()
-                    if now.hour == schedule['HOUR'] and now.minute == schedule['MINUTE']:
-                        result = self.execute_plugin(plugin_name, *args, **kwargs)
+                    today = now.date()
+                    if now.hour <= schedule['HOUR'] and now.minute <= schedule['MINUTE']:
+                        next_day = today
+                    else:
+                        next_day = today + timedelta(days=1)
+
+                    next_time = datetime(year=next_day.year, month=next_day.month, day=next_day.day,
+                                         hour=schedule['HOUR'], minute=schedule['MINUTE'])
+                    print(next_time)
+                    sleep_time = (next_time - now).seconds
+                    if now.hour == schedule['HOUR'] and now.minute == schedule["MINUTE"]:
+                        result = await self.execute_plugin(plugin_name, *args, **kwargs)
                         token = self.config.get_config('TELEGRAM')['BOT_TOKEN']
                         chat_id = self.config.get_config('TELEGRAM')['CHAT_ID']
-                        await self.send_message_async(token, chat_id, result)
+                        await self.send_message_async(token, chat_id, result['result'])
             else:
                 print(f"Plugin '{plugin_name}' not found.")
 
-            print(schedule)
-            await asyncio.sleep(schedule['INTERVAL_TIME'])
+            print(sleep_time)
+            await asyncio.sleep(sleep_time)
 
 
     async def send_message_async(self, bot_token, chat_id, text):
@@ -119,7 +124,6 @@ class PluginManager:
         try:
             schedule_config = self.config.get_plugin_config('SCHEDULE', self.plugins_path[plugin_name])
             mode = schedule_config['MODE'].upper()
-            print(mode)
             schedule['mode'] = mode
             if mode == 'INTERVAL':
                 if 'INTERVAL_TIME' in schedule_config.keys():
@@ -133,8 +137,8 @@ class PluginManager:
                 else:
                     schedule['INTERVAL_TIME'] = 30
             elif mode == 'FIX' and "RUN_TIME" in schedule_config.keys():
-                schedule['HOUR'] = schedule_config["RUN_TIME"]['HOUR']
-                schedule['MINUTE'] = schedule_config["RUN_TIME"]['MINUTE']
+                schedule['HOUR'] = int(schedule_config["RUN_TIME"]['HOUR'])
+                schedule['MINUTE'] = int(schedule_config["RUN_TIME"]['MINUTE'])
                 schedule['INTERVAL_TIME'] = 30
             elif mode == 'CONTIENUOUS':
                 schedule['INTERVAL_TIME'] = 30
