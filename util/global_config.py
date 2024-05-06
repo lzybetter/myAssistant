@@ -1,3 +1,6 @@
+from util.singleton import singleton
+
+@singleton
 class GlobalConfig:
     def __init__(self):
         """ 初始化 """
@@ -23,3 +26,6 @@ class GlobalConfig:
             return global_dict[name]
         except:
             return defaultvalue
+
+    def get_globalconfig_key(self):
+        return global_dict.keys()

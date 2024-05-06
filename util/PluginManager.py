@@ -3,10 +3,9 @@ import importlib.util
 import os
 import threading
 from datetime import datetime, timedelta
-
 from util.base_plugin import BasePlugin
-
 import telegram
+
 
 class PluginManager:
     PLUGIN_DIR = "custom_plugins"
@@ -17,7 +16,6 @@ class PluginManager:
         self.running_tasks = []
         # 插件所在目录
         self.plugins_path = {}
-        # self.loop = asyncio.new_event_loop()
         self.config = config
 
     def load_plugins(self):
@@ -37,21 +35,19 @@ class PluginManager:
             member = getattr(module, member_name)
 
             if callable(member) and hasattr(member, "__bases__") and BasePlugin in member.__bases__:
-                print(member)
-                self.plugins[plugin_name] = member()
+                self.plugins[plugin_name] = member(root)
                 self.plugins_path[plugin_name] = root
                 print(f"Plugin '{plugin_name}' loaded successfully.")
 
     def execute_plugins(self, *args, **kwargs):
         for plugin_name, plugin_instance in self.plugins.items():
             print(f"Executing plugin '{plugin_name}':")
-            plugin_instance.run_plugin(self.callback, *args, **kwargs)
+            plugin_instance.run_plugin(*args, **kwargs)
 
     async def execute_plugin(self, plugin_name, *args, **kwargs):
         if plugin_name in self.plugins:
             print(f"Executing plugin '{plugin_name}':")
             return await self.plugins[plugin_name].run_plugin(*args, **kwargs)
-
         else:
             print(f"Plugin '{plugin_name}' not found.")
             return f"Plugin '{plugin_name}' not found."
@@ -63,6 +59,7 @@ class PluginManager:
     def start_scheduler(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
+
         def scheduler():
             asyncio.set_event_loop(self.loop)
             for name in self.get_plugin_name_list():
@@ -75,9 +72,15 @@ class PluginManager:
         thread.daemon = True
         thread.start()
 
-
     async def execute_plugin_async(self, plugin_name, schedule, *args, **kwargs):
-
+        telegram_need = False
+        result = {'result':""}
+        try:
+            token = self.config.get_plugin_config('TELEGRAM', self.plugins_path[plugin_name])['BOT_TOKEN']
+            chat_id = self.config.get_plugin_config('TELEGRAM', self.plugins_path[plugin_name])['CHAT_ID']
+            telegram_need = True
+        except:
+            telegram_need = False
         sleep_time = 30
 
         while True:
@@ -86,10 +89,10 @@ class PluginManager:
                 print(schedule)
                 if schedule['mode'] == "INTERVAL" or schedule['mode'] == "CONTIENUOUS":
                     result = await self.execute_plugin(plugin_name, *args, **kwargs)
-                    token = self.config.get_config('TELEGRAM')['BOT_TOKEN']
-                    chat_id = self.config.get_config('TELEGRAM')['CHAT_ID']
-                    await self.send_message_async(token, chat_id, result['result'])
                     sleep_time = schedule['INTERVAL_TIME']
+                    if telegram_need:
+                        if result['result'] != "":
+                            await self.send_message_async(token, chat_id, result['result'])
                 elif schedule['mode'] == "FIX":
                     now = datetime.now()
                     today = now.date()
@@ -97,22 +100,21 @@ class PluginManager:
                         next_day = today
                     else:
                         next_day = today + timedelta(days=1)
-
                     next_time = datetime(year=next_day.year, month=next_day.month, day=next_day.day,
                                          hour=schedule['HOUR'], minute=schedule['MINUTE'])
                     print(next_time)
                     sleep_time = (next_time - now).seconds
                     if now.hour == schedule['HOUR'] and now.minute == schedule["MINUTE"]:
                         result = await self.execute_plugin(plugin_name, *args, **kwargs)
-                        token = self.config.get_config('TELEGRAM')['BOT_TOKEN']
-                        chat_id = self.config.get_config('TELEGRAM')['CHAT_ID']
-                        await self.send_message_async(token, chat_id, result['result'])
+                        if telegram_need:
+                            if result['result'] != "":
+                                await self.send_message_async(token, chat_id, result['result'])
             else:
                 print(f"Plugin '{plugin_name}' not found.")
 
+
             print(sleep_time)
             await asyncio.sleep(sleep_time)
-
 
     async def send_message_async(self, bot_token, chat_id, text):
         proxy = telegram.request.HTTPXRequest(proxy_url='http://127.0.0.1:8889')
@@ -129,7 +131,7 @@ class PluginManager:
                 if 'INTERVAL_TIME' in schedule_config.keys():
                     interval_time = (schedule_config['INTERVAL_TIME']['HOUR'] * 3600 +
                                      schedule_config['INTERVAL_TIME']['MINUTE'] * 60 +
-                                        schedule_config['INTERVAL_TIME']['SECOND'])
+                                     schedule_config['INTERVAL_TIME']['SECOND'])
                     if interval_time < 30:
                         schedule['INTERVAL_TIME'] = 30
                     else:
