@@ -92,6 +92,7 @@ class PluginManager:
                     sleep_time = schedule['INTERVAL_TIME']
                     if telegram_need:
                         if result['result'] != "":
+                            print(result)
                             await self.send_message_async(token, chat_id, result['result'])
                 elif schedule['mode'] == "FIX":
                     now = datetime.now()
@@ -117,7 +118,9 @@ class PluginManager:
             await asyncio.sleep(sleep_time)
 
     async def send_message_async(self, bot_token, chat_id, text):
-        proxy = telegram.request.HTTPXRequest(proxy_url='http://127.0.0.1:8889')
+        proxy_url = "http://" + self.config.get_proxy()['http']
+        print(proxy_url)
+        proxy = telegram.request.HTTPXRequest(proxy_url=proxy_url)
         bot = telegram.Bot(token=bot_token, request=proxy)
         await bot.send_message(chat_id=chat_id, text=text)
 
