@@ -3,7 +3,7 @@ test.py
 *.log
 
 ### config file
-*.yaml
+config.yaml
 *.db
 *.bin
 
@@ -12,6 +12,7 @@ custom_plugins/microsoft_todo/token_cache.bin
 
 ### plugin file
 custom_plugins/*
+audio_tmp/*
 
 ### venv template
 # Virtualenv

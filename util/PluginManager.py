@@ -1,11 +1,12 @@
 import asyncio
 import importlib.util
-import os
 import threading
-from datetime import datetime, timedelta
+from datetime import timedelta, datetime
 from util.base_plugin import BasePlugin
 import telegram
-
+from util.tts import TTSWebSocket, TTS
+from playsound import playsound
+import os
 
 class PluginManager:
     PLUGIN_DIR = "custom_plugins"
@@ -74,26 +75,54 @@ class PluginManager:
 
     async def execute_plugin_async(self, plugin_name, schedule, *args, **kwargs):
         telegram_need = False
+        tts_need = False
         result = {'result':""}
+        APPID = ""
+        APIKey = ""
+        APISecret = ""
         try:
             token = self.config.get_plugin_config('TELEGRAM', self.plugins_path[plugin_name])['BOT_TOKEN']
             chat_id = self.config.get_plugin_config('TELEGRAM', self.plugins_path[plugin_name])['CHAT_ID']
             telegram_need = True
         except:
             telegram_need = False
+        try:
+            if self.config.get_plugin_config('TTS', self.plugins_path[plugin_name]) == "NEED":
+                tts_need = True
+            else:
+                tts_need = False
+        except Exception as e:
+            print(e)
+            tts_need = False
+        try:
+            APPID = self.config.get_config("TTS")["APPID"]
+            APIKey = self.config.get_config("TTS")["APIKey"]
+            APISecret = self.config.get_config("TTS")["APISecret"]
+        except Exception as e:
+            print(e)
         sleep_time = 30
 
         while True:
             if plugin_name in self.plugins:
-                print(f"Executing plugin '{plugin_name}':")
-                print(schedule)
+                # print(f"Executing plugin '{plugin_name}':")
                 if schedule['mode'] == "INTERVAL" or schedule['mode'] == "CONTIENUOUS":
                     result = await self.execute_plugin(plugin_name, *args, **kwargs)
                     sleep_time = schedule['INTERVAL_TIME']
                     if telegram_need:
                         if result['result'] != "":
-                            print(result)
                             await self.send_message_async(token, chat_id, result['result'])
+                    if tts_need:
+                        try:
+                            if result['result'] != "":
+                                tts = TTS(API_KEY=APIKey,
+                                          API_SECRET=APISecret, APP_ID=APPID)
+                                sever = TTSWebSocket(tts_obj=tts, msg=(0, result['result']))
+                                au_result = sever.run()
+                                # speakpath = os.path.join(self.config.BASE_PATH, au_result)
+                                print(au_result)
+                                playsound(au_result)
+                        except Exception as e:
+                            print(e)
                 elif schedule['mode'] == "FIX":
                     now = datetime.now()
                     today = now.date()
@@ -103,23 +132,34 @@ class PluginManager:
                         next_day = today + timedelta(days=1)
                     next_time = datetime(year=next_day.year, month=next_day.month, day=next_day.day,
                                          hour=schedule['HOUR'], minute=schedule['MINUTE'])
-                    print(next_time)
                     sleep_time = (next_time - now).seconds
                     if now.hour == schedule['HOUR'] and now.minute == schedule["MINUTE"]:
                         result = await self.execute_plugin(plugin_name, *args, **kwargs)
                         if telegram_need:
                             if result['result'] != "":
                                 await self.send_message_async(token, chat_id, result['result'])
+                        if tts_need:
+                            try:
+                                if result['result'] != "":
+                                    tts = TTS(API_KEY=APIKey,
+                                              API_SECRET=APISecret, APP_ID=APPID)
+                                    sever = TTSWebSocket(tts_obj=tts, msg=(0, result['result']))
+                                    au_result = sever.run()
+                                    # speakpath = os.path.join(self.config.BASE_PATH, au_result)
+                                    print(au_result)
+                                    playsound(au_result)
+                            except Exception as e:
+                                print(e)
+
+
             else:
                 print(f"Plugin '{plugin_name}' not found.")
 
 
-            print(sleep_time)
             await asyncio.sleep(sleep_time)
 
     async def send_message_async(self, bot_token, chat_id, text):
         proxy_url = "http://" + self.config.get_proxy()['http']
-        print(proxy_url)
         proxy = telegram.request.HTTPXRequest(proxy_url=proxy_url)
         bot = telegram.Bot(token=bot_token, request=proxy)
         await bot.send_message(chat_id=chat_id, text=text)

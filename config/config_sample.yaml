@@ -1,0 +1,11 @@
+LOG_PATH: log # log文件夹
+PROXY:
+  http: 127.0.0.1:8089 # 代理地址
+  https: 127.0.0.1:8089
+
+
+TTS:
+  APPID: # 讯飞APPID
+  APIKey: # 讯飞APIKey
+  APISecret: # 讯飞APISecret
+  AUDIO_PATH: audio_tmp # 音频文件地址

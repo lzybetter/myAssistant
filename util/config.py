@@ -1,7 +1,8 @@
 import yaml
 import os
+from util.singleton import singleton
 
-
+@singleton
 class Config:
 
     __BASE_PATH = os.getcwd()
