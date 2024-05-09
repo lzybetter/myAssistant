@@ -7,4 +7,7 @@ to-do：
 - [x] 插件管理程序
 - [x] 定时运行(间隔、指定时间)
 - [x] 电报(telegram)机器人
-- [ ] 前段页面
+- [x] TTS
+- [ ] 前端页面
+
+鸣谢：TTS代码参考自https://github.com/CorttChan/xfyun-tts/tree/master
